@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>pubtools._quay.manifest_list_merger &mdash; pubtools-quay 0.6.0 documentation</title>
+  <title>pubtools._quay.manifest_list_merger &mdash; pubtools-quay 0.9.2 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -27,7 +27,7 @@
             <a href="../../../index.html" class="icon icon-home"> pubtools-quay
           </a>
               <div class="version">
-                0.6.0
+                0.9.2
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -88,6 +88,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">src_image</span><span class="p">,</span>
         <span class="n">dest_image</span><span class="p">,</span>
+        <span class="n">src_quay_host</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">src_quay_username</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">src_quay_password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">dest_quay_username</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -102,6 +103,8 @@
 <span class="sd">                Address to a new image whose manifest list contains the newer data.</span>
 <span class="sd">            dest_image (str):</span>
 <span class="sd">                Address to an older image whose data will be overwritten.</span>
+<span class="sd">            src_quay_host (str):</span>
+<span class="sd">                Custom hostname to connect to use for pulling src_image.</span>
 <span class="sd">            src_quay_username (str):</span>
 <span class="sd">                Quay username to get src_image. If ommited, external client instance should be set.</span>
 <span class="sd">            src_quay_password (str):</span>
@@ -116,7 +119,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">src_image</span> <span class="o">=</span> <span class="n">src_image</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dest_image</span> <span class="o">=</span> <span class="n">dest_image</span>
         <span class="k">if</span> <span class="n">src_quay_username</span> <span class="ow">and</span> <span class="n">src_quay_password</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_src_quay_client</span> <span class="o">=</span> <span class="n">QuayClient</span><span class="p">(</span><span class="n">src_quay_username</span><span class="p">,</span> <span class="n">src_quay_password</span><span class="p">,</span> <span class="n">host</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_src_quay_client</span> <span class="o">=</span> <span class="n">QuayClient</span><span class="p">(</span>
+                <span class="n">src_quay_username</span><span class="p">,</span> <span class="n">src_quay_password</span><span class="p">,</span> <span class="n">src_quay_host</span> <span class="ow">or</span> <span class="n">host</span>
+            <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_src_quay_client</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">dest_quay_username</span> <span class="ow">and</span> <span class="n">dest_quay_password</span><span class="p">:</span>
@@ -147,9 +152,11 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">src_image</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dest_image</span>
             <span class="p">)</span>
         <span class="p">)</span>
-        <span class="n">src_manifest_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_src_quay_client</span><span class="o">.</span><span class="n">get_manifest</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">src_image</span><span class="p">,</span> <span class="n">manifest_list</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">src_manifest_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_src_quay_client</span><span class="o">.</span><span class="n">get_manifest</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">src_image</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="n">QuayClient</span><span class="o">.</span><span class="n">MANIFEST_LIST_TYPE</span>
+        <span class="p">)</span>
         <span class="n">dest_manifest_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dest_quay_client</span><span class="o">.</span><span class="n">get_manifest</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">dest_image</span><span class="p">,</span> <span class="n">manifest_list</span><span class="o">=</span><span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dest_image</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="n">QuayClient</span><span class="o">.</span><span class="n">MANIFEST_LIST_TYPE</span>
         <span class="p">)</span>
 
         <span class="n">missing_archs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_missing_architectures</span><span class="p">(</span><span class="n">src_manifest_list</span><span class="p">,</span> <span class="n">dest_manifest_list</span><span class="p">)</span>
@@ -221,12 +228,14 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_src_quay_client</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dest_quay_client</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;QuayClient instance must be set for both source and dest images&quot;</span><span class="p">)</span>
 
-        <span class="n">src_manifest_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_src_quay_client</span><span class="o">.</span><span class="n">get_manifest</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">src_image</span><span class="p">,</span> <span class="n">manifest_list</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">src_manifest_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_src_quay_client</span><span class="o">.</span><span class="n">get_manifest</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">src_image</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="n">QuayClient</span><span class="o">.</span><span class="n">MANIFEST_LIST_TYPE</span>
+        <span class="p">)</span>
         <span class="c1"># It&#39;s possible that destination doesn&#39;t exist in this workflow. ML merging logic is still</span>
         <span class="c1"># necessary due to only some archs being eligible</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">dest_manifest_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dest_quay_client</span><span class="o">.</span><span class="n">get_manifest</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">dest_image</span><span class="p">,</span> <span class="n">manifest_list</span><span class="o">=</span><span class="kc">True</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dest_image</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="n">QuayClient</span><span class="o">.</span><span class="n">MANIFEST_LIST_TYPE</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">HTTPError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">404</span> <span class="ow">or</span> <span class="n">e</span><span class="o">.</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">401</span><span class="p">:</span>
