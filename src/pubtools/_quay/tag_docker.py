@@ -15,7 +15,6 @@ from .exceptions import (
 )
 from .utils.misc import (
     get_internal_container_repo_name,
-    get_pyxis_ssl_paths,
     set_aws_kms_environment_variables,
 )
 from .quay_client import QuayClient
@@ -510,8 +509,6 @@ class TagDocker:
                 Push item to perform the workflow with.
             tag (str):
                 Tag, which acts as a destination to the copy operation.
-            signature_handler (BasicSignatureHandler):
-                Instance of signature handler which will perform the signing.
             executor (Executor):
                 Instance of Executor subclass used for skopeo inspect.
         """
@@ -573,7 +570,6 @@ class TagDocker:
                     )
                 )
 
-            cert, key = get_pyxis_ssl_paths(self.target_settings)
             item_processor = item_processor_for_internal_data(
                 self.quay_client,
                 self.target_settings["quay_host"].rstrip("/"),
@@ -634,8 +630,6 @@ class TagDocker:
                 Tag, which acts as a destination to the merge operation.
             add_archs ([str]):
                 Architectures which should be copied to the existing manifest list.
-            signature_handler (BasicSignatureHandler):
-                Instance of signature handler which will perform the signing.
         """
         LOG.info(
             "Architectures {0} of tag '{1}' will be copied to destination tag '{2}'".format(
@@ -669,21 +663,6 @@ class TagDocker:
 
             for manifest in new_manifest_list["manifests"]:
                 for registry in dest_registries:
-                    to_sign_entries_internal.append(
-                        SignEntry(
-                            repo=repo,
-                            pub_reference=f"{registry}/{repo}:{tag}",
-                            reference="quay.io/"
-                            + self.target_settings["quay_namespace"]
-                            + "/"
-                            + internal_repo
-                            + ":"
-                            + tag,
-                            digest=manifest["digest"],
-                            arch=manifest["platform"]["architecture"],
-                            signing_key=push_item.claims_signing_key,
-                        )
-                    )
                     reference = external_image_schema.format(host=registry, repo=repo, tag=tag)
                     to_sign_entries.append(
                         SignEntry(
@@ -699,7 +678,6 @@ class TagDocker:
                         (reference, manifest["digest"], push_item.claims_signing_key)
                     )
 
-            namespace = self.target_settings["quay_namespace"]
             item_processor = item_processor_for_internal_data(
                 self.quay_client,
                 self.target_settings["quay_host"].rstrip("/"),
@@ -748,11 +726,11 @@ class TagDocker:
             ml_to_sign = raw_src_manifest
             self.quay_client.upload_manifest(raw_src_manifest, dest_image, raw=True)
         else:
-            ml_to_sign = json.dumps(new_manifest_list)
+            ml_to_sign = json.dumps(new_manifest_list, sort_keys=True, indent=4)
             self.quay_client.upload_manifest(new_manifest_list, dest_image)
 
         if push_item.claims_signing_key:
-            # for cosign sign also manifest list
+            # for cosign sign manifest list only
             digest = "sha256:" + hashlib.sha256(ml_to_sign.encode("utf-8")).hexdigest()
             for pub_registry in dest_registries:
                 to_sign_entries_internal.append(
@@ -836,8 +814,6 @@ class TagDocker:
             host=self.quay_host, namespace=namespace, repo=internal_repo
         )
         dest_image = "{0}:{1}".format(full_repo, tag)
-
-        cert, key = get_pyxis_ssl_paths(self.target_settings)
 
         for signer in self.target_settings["signing"]:
             if signer["enabled"]:

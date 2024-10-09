@@ -479,13 +479,12 @@ class ItemProcesor:
                     ret.setdefault(registry, {}).setdefault(repo, []).append(tag)
         return ret
 
-    def generate_to_sign(self, item: Any, include_manifest_lists: bool = False) -> List[SignEntry]:
+    def generate_to_sign(self, item: Any, full_extract_ml: bool = True) -> List[SignEntry]:
         """Generate list of images to sign.
 
         Args:
             item (PushItem): Push item.
-            sign_only_arches(List[str]): List of architectures to sign.
-            If empty, all sign architectures.
+            full_extract_ml (bool): Extract manifest list or not.
         Returns:
             list: List of dictionaries containing reference, digest, repository and architecture.
         """
@@ -495,15 +494,22 @@ class ItemProcesor:
         )
 
         full_extract_orig = self.extractor.full_extract
-        self.extractor.full_extract = True
+        if full_extract_ml:
+            self.extractor.full_extract = True
         man_arch_digs = self.extractor.extract_manifests(item.metadata["pull_url"], media_types)
         self.extractor.full_extract = full_extract_orig
 
         for registry, repo, tag in self.generate_repo_dest_tags(item):
             reference = self.reference_processor.full_reference(registry, repo, tag)
+            if full_extract_ml:
+                man_arch_digs = [
+                    m for m in man_arch_digs if m.type_ != QuayClient.MANIFEST_LIST_TYPE
+                ]
+            elif any(m.type_ == QuayClient.MANIFEST_LIST_TYPE for m in man_arch_digs):
+                man_arch_digs = [
+                    m for m in man_arch_digs if m.type_ == QuayClient.MANIFEST_LIST_TYPE
+                ]
             for mad in man_arch_digs:
-                if mad.type_ == QuayClient.MANIFEST_LIST_TYPE and not include_manifest_lists:
-                    continue
                 public_registries = self.public_registries if registry == "quay.io" else [registry]
                 for public_registry in public_registries:
                     to_sign.append(

@@ -545,33 +545,12 @@ class PushDocker:
         current_signatures = []
         to_sign_new_entries = self.fetch_missing_push_items_digests(docker_push_items)
         to_sign_entries = []
-        to_sign_entries_internal = []
-        for internal_reg, repo_tags in to_sign_new_entries.items():
+        for _, repo_tags in to_sign_new_entries.items():
             for repo, tag_digests in repo_tags.items():
                 for tag, digests in tag_digests.items():
                     for type_, digest_key in digests.items():
                         digest, key = digest_key
-                        internal_reference = (
-                            f"{internal_reg}/"
-                            + self.target_settings["quay_namespace"]
-                            + "/"
-                            + get_internal_container_repo_name(repo)
-                            + ":"
-                            + tag
-                        )
                         for registry in self.dest_registries:
-                            pub_reference = f"{registry}/{repo}:{tag}"
-                            # add entries in internal format for cosign
-                            to_sign_entries_internal.append(
-                                SignEntry(
-                                    reference=internal_reference,
-                                    pub_reference=pub_reference,
-                                    repo=repo,
-                                    digest=digest,
-                                    signing_key=key,
-                                    arch="amd64",
-                                )
-                            )
                             reference = f"{registry}/{repo}:{tag}"
                             to_sign_entries.append(
                                 SignEntry(
@@ -591,8 +570,6 @@ class PushDocker:
                 signer = signercls(config_file=signer["config_file"], settings=self.target_settings)
                 if signercls.pre_push is True:
                     signer.sign_containers(to_sign_entries, self.task_id)
-                else:
-                    signer.sign_containers(to_sign_entries_internal, self.task_id)
 
         return current_signatures
 
@@ -678,10 +655,7 @@ class PushDocker:
         )
         to_sign_map = run_in_parallel(
             item_processor.generate_to_sign,
-            [
-                FData(args=(item,), kwargs={"include_manifest_lists": True})
-                for item in docker_push_items
-            ],
+            [FData(args=(item,), kwargs={"full_extract_ml": False}) for item in docker_push_items],
         )
         for _to_sign_entries in to_sign_map.values():
             to_sign_entries.extend(_to_sign_entries)

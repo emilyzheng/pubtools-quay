@@ -122,7 +122,7 @@ def _index_image_to_sign_entries(
         if m["platform"]["architecture"] in ["amd64", "x86_64"]
     ]
     to_sign_entries = []
-    # if signing external images, sign also manifest list
+    # if signing external images, sign manifest list only
     if internal:
         for _dest_tag in dest_tags:
             for registry in dest_registries:
@@ -137,14 +137,12 @@ def _index_image_to_sign_entries(
                             signing_key=key,
                         )
                     )
+        return to_sign_entries
 
     for registry in dest_registries:
         for _dest_tag in dest_tags:
             for digest in index_image_digests:
-                if internal:
-                    reference = f"quay.io/{iib_repo}:{_dest_tag}"
-                else:
-                    reference = f"{registry}/{iib_repo}:{_dest_tag}"
+                reference = f"{registry}/{iib_repo}:{_dest_tag}"
                 for key in signing_keys:
                     to_sign_entries.append(
                         SignEntry(
