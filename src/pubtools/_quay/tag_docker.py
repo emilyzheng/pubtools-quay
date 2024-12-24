@@ -141,7 +141,7 @@ class TagDocker:
             if item.metadata["tag_source"] and ":" in item.metadata["tag_source"]:
                 raise BadPushItem("Specifying source via digest is not allowed.")
 
-    def check_input_validity(self) -> None:
+    def check_input_validity(self, items, operation) -> None:
         """
         Check if input data satisfies tag-docker specific constraints.
 
@@ -161,42 +161,43 @@ class TagDocker:
                 self.quay_host,
             )
 
-            for item in self.push_items:
+            for item in items:
                 internal_repo = get_internal_container_repo_name(list(item.repos.keys())[0])
                 stage_repo = full_repo_schema.format(
                     host=self.quay_host, namespace=stage_namespace, repo=internal_repo
                 )
 
-                # all to-be-added tags must already exist in stage repo
-                for tag in item.metadata["add_tags"]:
-                    stage_image = "{0}:{1}".format(stage_repo, tag)
-                    try:
-                        stage_quay_client.get_manifest(stage_image)
-                    except requests.exceptions.HTTPError as e:
-                        if e.response.status_code == 404 or e.response.status_code == 401:
+                if operation == "add":
+                    # all to-be-added tags must already exist in stage repo
+                    for tag in item.metadata["add_tags"]:
+                        stage_image = "{0}:{1}".format(stage_repo, tag)
+                        try:
+                            stage_quay_client.get_manifest(stage_image)
+                        except requests.exceptions.HTTPError as e:
+                            if e.response.status_code == 404 or e.response.status_code == 401:
+                                raise BadPushItem(
+                                    "To-be-added tag {0} must already exist in stage repo".format(tag)
+                                )
+                            else:
+                                raise
+                elif operation == "remove":
+                    # all to-be-removed tags must already be removed from stage
+                    for tag in item.metadata["remove_tags"]:
+                        stage_image = "{0}:{1}".format(stage_repo, tag)
+                        try:
+                            stage_quay_client.get_manifest(stage_image)
+                        except requests.exceptions.HTTPError as e:
+                            if e.response.status_code == 404 or e.response.status_code == 401:
+                                # 404/401 -> all good
+                                pass
+                            else:
+                                raise
+                        else:
                             raise BadPushItem(
-                                "To-be-added tag {0} must already exist in stage repo".format(tag)
+                                "To-be-removed tag {0} must already be removed from stage repo".format(
+                                    tag
+                                )
                             )
-                        else:
-                            raise
-
-                # all to-be-removed tags must already be removed from stage
-                for tag in item.metadata["remove_tags"]:
-                    stage_image = "{0}:{1}".format(stage_repo, tag)
-                    try:
-                        stage_quay_client.get_manifest(stage_image)
-                    except requests.exceptions.HTTPError as e:
-                        if e.response.status_code == 404 or e.response.status_code == 401:
-                            # 404/401 -> all good
-                            pass
-                        else:
-                            raise
-                    else:
-                        raise BadPushItem(
-                            "To-be-removed tag {0} must already be removed from stage repo".format(
-                                tag
-                            )
-                        )
 
     def get_image_details(self, reference: str, executor: Executor) -> Optional[ImageDetails]:
         """
@@ -912,7 +913,7 @@ class TagDocker:
         # Validate repos, same as in PushDocker
         PushDocker.check_repos_validity(self.push_items, self.hub, self.target_settings)
         # perform tag-docker-specific checks
-        self.check_input_validity()
+        self.check_input_validity(self.push_items, "add")
 
         with LocalExecutor() as executor:
             executor.skopeo_login(
@@ -944,6 +945,7 @@ class TagDocker:
                         continue
                     # If no archs will remain after removal, just perform untagging
                     elif not keep_archs:
+                        self.check_input_validity([item], "remove")
                         self.untag_image(item, tag)
                     # if some archs will be removed and some will remain, create new manifest list
                     else:
