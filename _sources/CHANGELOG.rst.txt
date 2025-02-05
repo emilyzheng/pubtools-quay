@@ -1,6 +1,19 @@
 ChangeLog
 =========
 
+0.32.0 (2025-03-07)
+-------------------
+* Bumped pubtools-sign dependency
+
+0.31.0 (2025-01-14)
+-------------------
+* Check related image only for add-bundles
+
+0.30.0 (2025-01-13)
+-------------------
+* Disable stage check when removing arches
+* Add additional tag to merged manifest list
+
 0.29.0 (2024-11-20)
 -------------------
 * Restore a tag only once
