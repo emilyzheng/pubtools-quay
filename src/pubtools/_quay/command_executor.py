@@ -118,7 +118,7 @@ class Executor(object):
                 Whether to copy all architectures (if multiarch image)
         """
         if all_arch:
-            cmd = "skopeo copy --all docker://{0} docker://{1}"
+            cmd = "skopeo copy --all docker://registry-proxy.engineering.redhat.com/rh-osbs/devspaces-udi-rhel9:fake docker://{1}"
         else:
             cmd = "skopeo copy docker://{0} docker://{1}"
 
